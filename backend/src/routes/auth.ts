@@ -70,6 +70,11 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid credentials.' }); // Use a generic message for security
     }
 
+    // Block login if the user is a pending admin
+    if (user.role === 'PENDING_ADMIN') {
+      return res.status(403).json({ message: 'Your admin account is pending approval.' });
+    }
+
     // 3. Compare the provided password with the stored hash
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {

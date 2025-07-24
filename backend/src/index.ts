@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
-import resourceRoutes from './routes/resources'; // Import the new resource routes
+import resourceRoutes from './routes/resources';
+import bookingRoutes from './routes/bookings'; // Import the new booking routes
 
 dotenv.config();
 
@@ -17,7 +18,8 @@ app.use(express.json());
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/resources', resourceRoutes); // Use the resource routes
+app.use('/api/resources', resourceRoutes);
+app.use('/api/bookings', bookingRoutes); // Use the booking routes
 
 // Health check route
 app.get('/api/health', (req: Request, res: Response) => {

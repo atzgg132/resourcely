@@ -31,6 +31,7 @@ model User {
   creditBalance Int      @default(100) // Add this line
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  bookings Booking[]
 }
 
 // Resource Model
@@ -43,7 +44,30 @@ model Resource {
   minBookingMinutes Int      @default(30)
   maxBookingMinutes Int      @default(240)
   requiresApproval Boolean  @default(false)
+  operatingHoursStart Int      @default(480) // 8:00 AM
+  operatingHoursEnd   Int      @default(1320) // 10:00 PM
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+// Booking model
+model Booking {
+  id        String   @id @default(cuid())
+  startTime DateTime
+  endTime   DateTime
+  creditsDeducted Int
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([resourceId])
 }
