@@ -9,12 +9,13 @@ import RegisterPage from './pages/RegisterPage';
 import AdminRegisterPage from './pages/AdminRegisterPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ManageResourcesPage from './pages/ManageResourcesPage';
-import BookingPage from './pages/BookingPage'; // New
-import ResourceDetailPage from './pages/ResourceDetailPage'; // New
+import BookingPage from './pages/BookingPage';
+import ResourceDetailPage from './pages/ResourceDetailPage';
+import RequestCreditsPage from './pages/RequestCreditsPage';
 
 // Import components
 import AdminRoute from './components/AdminRoute';
-import ProtectedRoute from './components/ProtectedRoute'; // New
+import ProtectedRoute from './components/ProtectedRoute';
 
 const LogoutButton: React.FC = () => {
   const { logout } = useAuth();
@@ -56,14 +57,27 @@ const App: React.FC = () => {
                   {user ? (
                     <>
                       <Link to="/bookings" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Book a Resource</Link>
+                      
+                      {!isAdmin && (
+                        <Link to="/request-credits" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">
+                          Request Credits
+                        </Link>
+                      )}
+
                       {isAdmin && (
                         <>
-                          <Link to="/admin/dashboard" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Approvals</Link>
-                          <Link to="/admin/resources" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Resources</Link>
+                          <Link to="/admin/dashboard" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">
+                            Dashboard
+                          </Link>
+                          <Link to="/admin/resources" className="text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">
+                            Resources
+                          </Link>
                         </>
                       )}
+
                       <span className="text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
-                        Welcome, {user.name || user.email}! {isAdmin ? ' (Admin)' : ` (${user.creditBalance} credits)`}
+                        Welcome, {user.name || user.email}!
+                        {isAdmin ? ' (Admin)' : ` (${user.creditBalance} credits)`}
                       </span>
                       <LogoutButton />
                     </>
@@ -93,6 +107,7 @@ const App: React.FC = () => {
               <Route path="/" element={<ProtectedRoute />}>
                 <Route path="bookings" element={<BookingPage />} />
                 <Route path="book/:resourceId" element={<ResourceDetailPage />} />
+                <Route path="request-credits" element={<RequestCreditsPage />} />
               </Route>
 
               {/* Protected Admin Routes */}

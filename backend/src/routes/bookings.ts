@@ -150,5 +150,75 @@ router.get('/my-bookings', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// DELETE /api/bookings/:bookingId - Cancel a booking (UPDATED)
+router.delete('/:bookingId', async (req: AuthRequest, res: Response) => {
+  const { bookingId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Authentication error.' });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({ where: { id: bookingId } });
+
+      if (!booking) { throw new Error('Booking not found.'); }
+      if (booking.userId !== userId && req.user?.role !== 'ADMIN' && req.user?.role !== 'SUPERADMIN') {
+        throw new Error('Permission denied.');
+      }
+      if (new Date(booking.startTime) < new Date()) {
+        throw new Error('Cannot cancel a booking that has already started.');
+      }
+
+      // Refund credits to the original user
+      await tx.user.update({
+        where: { id: booking.userId },
+        data: { creditBalance: { increment: booking.creditsDeducted } },
+      });
+
+      // Delete the booking
+      await tx.booking.delete({ where: { id: bookingId } });
+
+      // --- WAITING LIST LOGIC ---
+      // Find the first person on the waiting list for any slot that this booking occupied.
+      const waitingListEntry = await tx.waitingListEntry.findFirst({
+        where: {
+          resourceId: booking.resourceId,
+          slotStartTime: {
+            gte: booking.startTime,
+            lt: booking.endTime,
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        include: {
+          user: true, // Include user info for notification
+        },
+      });
+
+      if (waitingListEntry) {
+        console.log(`Booking cancelled. Notifying user ${waitingListEntry.user.email} that a slot is available.`);
+        // In a real application, you would trigger an email notification here.
+        // e.g., await sendSlotAvailableEmail(waitingListEntry.user.email, ...);
+        
+        // For now, we will just log it. We can also remove the entry so they aren't notified again.
+        await tx.waitingListEntry.delete({ where: { id: waitingListEntry.id } });
+      }
+      // --- END OF LOGIC ---
+
+      return { message: 'Booking cancelled successfully.' };
+    });
+
+    res.json(result);
+
+  } catch (error: any) {
+    console.error('Cancellation error:', error.message);
+    res.status(400).json({ message: error.message || 'Failed to cancel booking.' });
+  }
+});
+
+
 
 export default router;

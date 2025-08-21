@@ -53,4 +53,68 @@ router.post('/approve-request/:userId', async (req: AuthRequest, res) => {
 
 // We can add a deny route later if needed. For now, an admin can just ignore the request.
 
+// GET /api/admin/credit-requests - Get all pending credit requests
+router.get('/credit-requests', async (req, res) => {
+  try {
+    const requests = await prisma.creditRequest.findMany({
+      where: { status: 'PENDING' },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch credit requests.' });
+  }
+});
+
+// POST /api/admin/credit-requests/:requestId/approve - Approve a request
+router.post('/credit-requests/:requestId/approve', async (req, res) => {
+  const { requestId } = req.params;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const request = await tx.creditRequest.findUnique({ where: { id: requestId } });
+      if (!request || request.status !== 'PENDING') {
+        throw new Error('Request not found or already actioned.');
+      }
+
+      // Add credits to the user
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { creditBalance: { increment: request.amount } },
+      });
+
+      // Update the request status
+      const updatedRequest = await tx.creditRequest.update({
+        where: { id: requestId },
+        data: { status: 'APPROVED' },
+      });
+      
+      return updatedRequest;
+    });
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || 'Failed to approve request.' });
+  }
+});
+
+// POST /api/admin/credit-requests/:requestId/deny - Deny a request
+router.post('/credit-requests/:requestId/deny', async (req, res) => {
+    const { requestId } = req.params;
+    try {
+        const request = await prisma.creditRequest.findFirst({
+            where: { id: requestId, status: 'PENDING' }
+        });
+        if (!request) {
+            return res.status(404).json({ message: 'Request not found or already actioned.' });
+        }
+        const deniedRequest = await prisma.creditRequest.update({
+            where: { id: requestId },
+            data: { status: 'DENIED' },
+        });
+        res.json(deniedRequest);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to deny request.' });
+    }
+});
+
 export default router;

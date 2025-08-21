@@ -2,41 +2,44 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { sendEmail } from '../lib/email'; // Import our new email function
 
 const router = Router();
 
-// Route: POST /api/auth/register/member
-// Desc: Register a new member
+// Route: POST /api/auth/register/member (UPDATED)
 router.post('/register/member', async (req: Request, res: Response) => {
   try {
     const { email, password, name } = req.body;
 
-    // 1. Validate input
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    // 2. Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ message: 'User with this email already exists.' });
     }
 
-    // 3. Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. Create the new user
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name: name || 'New Member',
-        // role and creditBalance will use the default values from the schema
       },
     });
 
-    // 5. Respond with success (don't send the password back!)
+    // --- SEND WELCOME EMAIL ---
+    await sendEmail({
+      to: user.email,
+      subject: 'Welcome to the Makerspace Scheduler!',
+      text: `Hi ${user.name || 'there'},\n\nWelcome aboard! You can now log in and start booking resources.\n\nBest,\nThe Makerspace Team`,
+      html: `<p>Hi ${user.name || 'there'},</p><p>Welcome aboard! You can now log in and start booking resources.</p><p>Best,<br/>The Makerspace Team</p>`,
+    });
+    // --- END OF EMAIL LOGIC ---
+
     res.status(201).json({
       message: 'Member registered successfully!',
       user: {

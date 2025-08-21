@@ -32,6 +32,8 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   bookings Booking[]
+  creditRequests CreditRequest[]
+  waitingListEntries WaitingListEntry[]
 }
 
 // Resource Model
@@ -51,6 +53,7 @@ model Resource {
   updatedAt       DateTime @updatedAt
 
   bookings Booking[]
+  waitingListEntries WaitingListEntry[]
 }
 
 // Booking model
@@ -70,4 +73,37 @@ model Booking {
 
   @@index([userId])
   @@index([resourceId])
+}
+
+// Credit Request Model
+model CreditRequest {
+  id        String   @id @default(cuid())
+  amount    Int
+  reason    String
+  status    String   @default("PENDING") // PENDING, APPROVED, DENIED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WaitingListEntry {
+  id            String   @id @default(cuid())
+  
+  // The specific time slot the user is waiting for
+  slotStartTime DateTime 
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, resourceId, slotStartTime]) // A user can only be on the list once for a specific slot
+  @@index([resourceId, slotStartTime])
 }

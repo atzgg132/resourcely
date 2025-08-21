@@ -13,6 +13,7 @@ const ResourceDetailPage: React.FC = () => {
   const [resource, setResource] = useState<Resource | null>(null);
   const [bookings, setBookings] = useState<{ start: Date; end: Date }[]>([]);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState(''); // New state for success messages
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
   const [selectionStart, setSelectionStart] = useState<Date | null>(null);
@@ -121,6 +122,22 @@ const ResourceDetailPage: React.FC = () => {
     }
   };
 
+  // --- NEW FUNCTION for joining the waitlist ---
+  const handleJoinWaitlist = async (slot: Date) => {
+    setMessage('');
+    setError('');
+    try {
+      const response = await axios.post('http://localhost:3001/api/requests/waitlist', {
+        resourceId,
+        slotStartTime: slot.toISOString(),
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setMessage(response.data.message);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to join waitlist.');
+    }
+  };
+
+
   const bookingCost = resource && selectedSlot ? Math.ceil(((selectedSlot.end.getTime() - selectedSlot.start.getTime()) / (1000 * 60 * 60)) * resource.costPerHour) : 0;
   const isBookingDisabled = !isAdmin && (!user || user.creditBalance < bookingCost);
 
@@ -131,9 +148,10 @@ const ResourceDetailPage: React.FC = () => {
       <h1 className="text-3xl font-bold">{resource.name}</h1>
       <p className="text-lg text-gray-600 mb-6">{resource.description}</p>
       {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4" onClick={() => setError('')}>{error}</div>}
+      {message && <div className="bg-blue-100 text-blue-700 p-3 rounded mb-4" onClick={() => setMessage('')}>{message}</div>}
 
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Date Picker */}
+        {/* Date Picker (No changes here) */}
         <div className="w-full md:w-1/3">
           <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
@@ -163,7 +181,7 @@ const ResourceDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Time Slots */}
+        {/* Time Slots (UPDATED LOGIC) */}
         <div className="w-full md:w-2/3">
            <div className="flex justify-between items-center mb-4">
              <h3 className="text-xl font-semibold">
@@ -177,14 +195,30 @@ const ResourceDetailPage: React.FC = () => {
               const isPast = slot < new Date();
               const isSelectionStart = !!(selectionStart && isEqual(slot, selectionStart));
               const isInSelectionRange = !!(selectionStart && slot > selectionStart);
-              const isDisabled = isBooked || isPast || (isInSelectionRange && !isRangeValid(selectionStart, addMinutes(slot, resource.minBookingMinutes)));
+              
+              // A slot is only truly disabled for selection if it's in the past or part of an invalid range.
+              // A booked slot can still be interacted with (to join waitlist).
+              const isSelectionDisabled = isPast || (isInSelectionRange && !isRangeValid(selectionStart, addMinutes(slot, resource.minBookingMinutes)));
+
+              if (isBooked) {
+                return (
+                  <button 
+                    key={slot.toString()}
+                    onClick={() => handleJoinWaitlist(slot)}
+                    className={`p-2 rounded-md text-sm font-semibold transition-colors bg-gray-200 text-gray-500 hover:bg-yellow-200 hover:text-yellow-800`}
+                    title="Join Waitlist"
+                  >
+                    {format(slot, 'p')}
+                  </button>
+                )
+              }
 
               return (
                 <button 
                   key={slot.toString()}
-                  disabled={isDisabled}
+                  disabled={isSelectionDisabled}
                   onClick={() => handleSlotClick(slot)}
-                  className={`p-2 rounded-md text-sm font-semibold transition-colors ${isDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : isSelectionStart ? 'bg-indigo-500 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
+                  className={`p-2 rounded-md text-sm font-semibold transition-colors ${isSelectionDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : isSelectionStart ? 'bg-indigo-500 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                 >
                   {format(slot, 'p')}
                 </button>
@@ -194,6 +228,7 @@ const ResourceDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Modal (No changes here) */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectionStart(null); }} title="Confirm Booking">
         {selectedSlot && (
           <div>
